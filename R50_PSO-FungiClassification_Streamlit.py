@@ -1,19 +1,21 @@
 import streamlit as st
 import os
-import matplotlib.pyplot as plt
-import pandas as pd
+import random
 
 # ---------------------------------------------
-# Fungsi Utility untuk Menghitung dan Menampilkan Gambar
+# Fungsi Utility untuk Mengambil dan Menampilkan Gushurts
 # ---------------------------------------------
 
-def load_mushroom_images(data_dir="data/mushrooms"):
+def get_mushroom_classes(data_dir="Data"):
     """
-    Mengembalikan dictionary dengan kunci nama kelas (jenis jamur)
-    dan nilai list berisi path gambar.
+    Mengembalikan dictionary dengan kunci nama kelas (nama folder dalam Data/)
+    dan nilai list berisi path semua file gambar di dalam folder tersebut.
     """
     classes = {}
-    for class_name in os.listdir(data_dir):
+    if not os.path.isdir(data_dir):
+        return classes
+
+    for class_name in sorted(os.listdir(data_dir)):
         class_path = os.path.join(data_dir, class_name)
         if os.path.isdir(class_path):
             image_files = [
@@ -21,66 +23,44 @@ def load_mushroom_images(data_dir="data/mushrooms"):
                 for f in os.listdir(class_path)
                 if f.lower().endswith((".png", ".jpg", ".jpeg"))
             ]
-            classes[class_name] = image_files
+            if image_files:
+                classes[class_name] = image_files
     return classes
 
 
-def plot_class_counts(class_dict):
+def display_three_random_per_class(class_dict):
     """
-    Membuat bar chart jumlah citra per kelas jamur.
+    Untuk setiap kelas dalam class_dict, pilih 3 gambar secara acak (jika tersedia)
+    dan tampilkan side-by-side dengan Streamlit columns.
     """
-    counts = {cls: len(imgs) for cls, imgs in class_dict.items()}
-    df = pd.DataFrame.from_dict(counts, orient="index", columns=["Jumlah"])
-    df = df.sort_values(by="Jumlah", ascending=False)
+    for cls, img_paths in class_dict.items():
+        st.markdown(f"**Jenis Jamur: {cls}**")
+        # Jika jumlah gambar kurang dari 3, tampilkan semua; jika lebih, random 3
+        if len(img_paths) <= 3:
+            chosen = img_paths
+        else:
+            chosen = random.sample(img_paths, 3)
 
-    fig, ax = plt.subplots()
-    df.plot(kind="bar", legend=False, ax=ax)
-    ax.set_title("Jumlah Citra per Kelas Jamur")
-    ax.set_ylabel("Jumlah Citra")
-    ax.set_xlabel("Kelas Jamur")
-    plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-    return fig
-
-
-def display_before_after(original_dir="data/sample/original", processed_dir="data/sample/processed"):
-    """
-    Menampilkan contoh perbandingan sebelum dan sesudah pra-pemrosesan.
-    Asumsikan struktur folder memiliki gambar dengan nama yang sama di kedua folder.
-    """
-    original_files = sorted(
-        [f for f in os.listdir(original_dir) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
-    )
-    processed_files = sorted(
-        [f for f in os.listdir(processed_dir) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
-    )
-
-    st.subheader("Perbandingan Gambar: Before vs After")
-    for orig_name, proc_name in zip(original_files, processed_files):
-        orig_path = os.path.join(original_dir, orig_name)
-        proc_path = os.path.join(processed_dir, proc_name)
-        cols = st.columns(2)
-        with cols[0]:
-            st.image(orig_path, caption=f"Original: {orig_name}", use_column_width=True)
-        with cols[1]:
-            st.image(proc_path, caption=f"Processed: {proc_name}", use_column_width=True)
+        cols = st.columns(len(chosen))
+        for i, img_path in enumerate(chosen):
+            with cols[i]:
+                st.image(img_path, use_column_width=True)
+        st.markdown("---")
 
 
 # ---------------------------------------------
-# Streamlit App
+# Aplikasi Streamlit
 # ---------------------------------------------
 
-# Title Page
 st.title("𝐀𝐩𝐥𝐢𝐤𝐚𝐬𝐢 𝐏𝐞𝐧𝐠𝐨𝐥𝐚𝐡𝐚𝐧 𝐂𝐢𝐭𝐫𝐚 𝐉𝐚𝐦𝐮𝐫")
 st.markdown(
     """
-    Selamat datang di aplikasi Streamlit untuk eksplorasi data citra jamur,
-    pra-pemrosesan, visualisasi alur algoritma, dan evaluasi hasil klasifikasi.
-    Gunakan menu di samping untuk menavigasi fitur-fitur aplikasi.
+    Selamat datang!  
+    Gunakan sidebar untuk menavigasi halaman Data, Pra-Pemrosesan, Flowchart, dan Hasil.
     """
 )
 
-# Sidebar Menu Utama
+# Sidebar: Menu Utama
 menu = st.sidebar.selectbox(
     "📂 Menu Utama",
     ["Data", "Pra-Pemrosesan", "Flowchart Algoritma", "Hasil"]
@@ -101,32 +81,30 @@ if menu == "Data":
         st.subheader("1.1 Gambar Jamur")
         st.markdown(
             """
-            Terdapat 9 jenis jamur dalam dataset. Pada setiap jenis, ditampilkan hingga 3 contoh citra.
+            Dalam folder `Data/`, terdapat 9 subfolder (kelas jamur).  
+            Masing-masing kelas akan menampilkan 3 contoh citra secara acak.
             """
         )
-        mushroom_classes = load_mushroom_images("data/mushrooms")  # Ganti path sesuai struktur katalog
-
-        # Tampilkan 3 contoh gambar per kelas (jika tersedia)
-        for cls, img_paths in mushroom_classes.items():
-            st.markdown(f"**Jenis Jamur: {cls}**")
-            thumbnails = img_paths[:3]  # ambil 3 gambar pertama
-            cols = st.columns(len(thumbnails))
-            for i, img_path in enumerate(thumbnails):
-                with cols[i]:
-                    st.image(img_path, use_column_width=True)
-            st.markdown("---")
+        mushroom_classes = get_mushroom_classes("Data")
+        if not mushroom_classes:
+            st.warning("Folder `Data/` tidak ditemukan atau kosong.")
+        else:
+            display_three_random_per_class(mushroom_classes)
 
     # Submenu: Grafik Jumlah Citra
     elif submenu_data == "Grafik Jumlah Citra":
         st.subheader("1.2 Grafik Jumlah Citra per Kelas")
         st.markdown(
             """
-            Bar chart berikut menunjukkan total jumlah citra pada masing-masing kelas jamur.
+            Berikut grafik jumlah citra per kelas (pre-generated).
             """
         )
-        mushroom_classes = load_mushroom_images("data/mushrooms")  # Ganti path sesuai struktur katalog
-        fig = plot_class_counts(mushroom_classes)
-        st.pyplot(fig)
+        graph_path = os.path.join("Assets", "dataMushroom.jpg")
+        if os.path.exists(graph_path):
+            st.image(graph_path, caption="Grafik Jumlah Citra per Kelas", use_column_width=True)
+        else:
+            st.warning("File `Assets/dataMushroom.jpg` tidak ditemukan.")
+
 
 # ---------------------------------------------
 # Menu: Pra-Pemrosesan
@@ -143,51 +121,72 @@ elif menu == "Pra-Pemrosesan":
         st.subheader("2.1 Perbandingan Sebelum dan Sesudah")
         st.markdown(
             """
-            Di bagian ini, diperlihatkan contoh citra sebelum dan sesudah melalui tahapan pra-pemrosesan.
-            Pastikan folder `data/sample/original` dan `data/sample/processed` berisi gambar dengan nama yang sama.
+            Tampilkan perbandingan citra sebelum dan sesudah pra-pemrosesan.  
+            Pastikan folder `Data/Sample/Original/` dan `Data/Sample/Processed/` 
+            berisi gambar dengan nama yang sama agar bisa dibandingkan.
             """
         )
-        display_before_after(
-            original_dir="data/sample/original",
-            processed_dir="data/sample/processed"
-        )
+        original_dir = os.path.join("Data", "Sample", "Original")
+        processed_dir = os.path.join("Data", "Sample", "Processed")
+
+        if not os.path.isdir(original_dir) or not os.path.isdir(processed_dir):
+            st.warning("Folder `Data/Sample/Original/` atau `Data/Sample/Processed/` tidak ditemukan.")
+        else:
+            orig_files = sorted(
+                [f for f in os.listdir(original_dir) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+            )
+            proc_files = sorted(
+                [f for f in os.listdir(processed_dir) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+            )
+            if not orig_files or not proc_files:
+                st.warning("Tidak ada gambar di `Data/Sample/Original/` atau `Data/Sample/Processed/`.")
+            else:
+                st.subheader("Perbandingan Contoh Gambar")
+                for orig_name, proc_name in zip(orig_files, proc_files):
+                    orig_path = os.path.join(original_dir, orig_name)
+                    proc_path = os.path.join(processed_dir, proc_name)
+                    cols = st.columns(2)
+                    with cols[0]:
+                        st.image(orig_path, caption=f"Original: {orig_name}", use_column_width=True)
+                    with cols[1]:
+                        st.image(proc_path, caption=f"Processed: {proc_name}", use_column_width=True)
 
     # Submenu: Metode
     elif submenu_pre == "Metode":
         st.subheader("2.2 Metode Pra-Pemrosesan")
         st.markdown(
             """
-            Berikut adalah penjelasan singkat tentang metode-metode yang digunakan dalam pra-pemrosesan citra:
-
             **Augmentasi Citra**  
             Augmentasi citra adalah teknik yang efektif untuk memperkaya dan memperluas dataset tanpa harus mengumpulkan data baru.  
-            Dengan meningkatkan variasi data, augmentasi membantu mencegah overfitting dan membuat model lebih andal serta mampu mengenali pola pada data yang belum pernah dilihat sebelumnya.  
-            Teknik ini sangat berguna dalam pelatihan model klasifikasi citra agar lebih general dan akurat (Maulana et al., 2023).
+            Dengan meningkatkan variasi data, augmentasi membantu mencegah overfitting dan membuat model lebih andal.  
+            (Maulana et al., 2023)
 
             **Resize**  
-            Resize adalah proses mengubah dimensi gambar agar seragam. Misalnya, citra berukuran acak dapat diubah menjadi ukuran tetap seperti 32×32 piksel.  
-            Langkah ini penting untuk menyamakan input ke dalam model CNN dan mengurangi kompleksitas komputasi (Supiyani et al., 2022).
+            Resize mengubah dimensi gambar agar seragam (misal 32×32 piksel), penting untuk menyamakan input ke model CNN.  
+            (Supiyani et al., 2022)
 
             **Flip**  
-            Teknik flip horizontal digunakan untuk membalik gambar secara lateral, menghasilkan citra baru yang memiliki pola cermin dari citra asli.  
-            Teknik ini menambah variasi data dan membantu model dalam belajar pola dari berbagai arah tanpa mengubah makna semantik citra (Subkhi et al., 2024).
+            Flip horizontal membalik gambar secara lateral untuk menambah variasi data tanpa mengubah semantik.  
+            (Subkhi et al., 2024)
 
             **Rotation**  
-            Rotasi citra digunakan untuk mengubah orientasi gambar pada sudut tertentu. Hal ini bertujuan agar model menjadi lebih tangguh terhadap perbedaan posisi objek dalam gambar saat pengujian (Subkhi et al., 2024).
+            Rotasi mengubah orientasi gambar pada sudut tertentu agar model lebih tangguh terhadap posisi objek.  
+            (Subkhi et al., 2024)
 
             **Color Jitter**  
-            Color jitter merupakan teknik augmentasi yang mengubah atribut visual citra seperti tingkat kecerahan (brightness), saturasi, kontras, dan rona warna (hue).  
-            Tujuannya adalah untuk mensimulasikan variasi pencahayaan nyata, sehingga meningkatkan kemampuan generalisasi model (Lusen et al., 2024).
+            Color jitter mengubah brightness, saturasi, kontras, dan hue untuk mensimulasikan variasi pencahayaan nyata.  
+            (Lusen et al., 2024)
 
             **DataTensor**  
-            Dalam konteks CNN, gambar diubah menjadi representasi tensor agar dapat diproses oleh jaringan saraf.  
-            Tensor adalah struktur data multidimensi yang menyimpan informasi numerik dalam bentuk array, memungkinkan efisiensi dalam pemrosesan paralel di GPU (Lusen et al., 2024).
+            Gambar diubah menjadi tensor (struktur array multidimensi) untuk diproses oleh CNN di GPU.  
+            (Lusen et al., 2024)
 
             **Normalisasi Data Citra**  
-            Normalisasi adalah proses skala ulang nilai piksel citra, misalnya dari rentang 0–255 menjadi 0–1.  
-            Ini dilakukan untuk mempercepat konvergensi selama pelatihan dan menghindari dominasi nilai besar yang dapat menyebabkan kesalahan numerik pada proses pembelajaran (Hendrik et al., 2024).
+            Normalisasi menskalakan nilai piksel (0–255 → 0–1) untuk mempercepat konvergensi dan mencegah kesalahan numerik.  
+            (Hendrik et al., 2024)
             """
         )
+
 
 # ---------------------------------------------
 # Menu: Flowchart Algoritma
@@ -196,20 +195,21 @@ elif menu == "Flowchart Algoritma":
     st.header("3. Flowchart Algoritma")
     st.markdown(
         """
-        Berikut adalah alur proses keseluruhan dari sistem klasifikasi citra jamur:
-        1. **Pengumpulan Data**: Mengumpulkan dataset citra jamur.
-        2. **Pra-Pemrosesan**: Melakukan augmentasi, resize, flip, rotasi, color jitter, konversi ke tensor, dan normalisasi.
-        3. **Pelatihan Model**: Melatih model CNN menggunakan data yang telah diproses.
-        4. **Evaluasi Model**: Menghitung metrik akurasi, confusion matrix, dll.
-        5. **Prediksi**: Menerapkan model pada citra baru untuk klasifikasi.
+        Berikut alur proses klasifikasi citra jamur:
+        
+        1. **Pengumpulan Data**: Ambil citra jamur dari folder `Data/`.  
+        2. **Pra-Pemrosesan**: Augmentasi, resize, flip, rotasi, color jitter, konversi ke tensor, normalisasi.  
+        3. **Pelatihan Model**: Melatih CNN menggunakan data terproses.  
+        4. **Evaluasi Model**: Hitung akurasi, plot confusion matrix, dsb.  
+        5. **Prediksi**: Gunakan model untuk mengklasifikasi citra baru.
         """
     )
-    # Tampilkan flowchart (jika ada file image bernama flowchart.png di direktori project)
-    flowchart_path = "assets/flowchart.png"
+    flowchart_path = os.path.join("Assets", "model_graph.png")
     if os.path.exists(flowchart_path):
-        st.image(flowchart_path, caption="Flowchart Algoritma Klasifikasi Jamur", use_column_width=True)
+        st.image(flowchart_path, caption="Flowchart Algoritma Klasifikasi", use_column_width=True)
     else:
-        st.warning("File flowchart.png tidak ditemukan di folder assets/. Silakan tambahkan gambar flowchart di path tersebut.")
+        st.warning("File `Assets/model_graph.png` tidak ditemukan.")
+
 
 # ---------------------------------------------
 # Menu: Hasil
@@ -218,59 +218,33 @@ elif menu == "Hasil":
     st.header("4. Hasil")
     submenu_hasil = st.sidebar.selectbox(
         "Pilih Submenu Hasil",
-        ["Grafik Hasil", "Evaluasi (Confusion Matrix)"]
+        ["Grafik Loss & Akurasi", "Evaluasi (Confusion Matrix)"]
     )
 
-    # Submenu: Grafik Hasil
-    if submenu_hasil == "Grafik Hasil":
-        st.subheader("4.1 Grafik Hasil Pelatihan")
+    # Submenu: Grafik Loss & Akurasi
+    if submenu_hasil == "Grafik Loss & Akurasi":
+        st.subheader("4.1 Grafik Loss & Akurasi Pelatihan")
         st.markdown(
             """
-            Berikut adalah contoh grafik hasil pelatihan model CNN:
-            - Kurva Loss vs Epoch
-            - Kurva Akurasi vs Epoch
+            Berikut grafik hasil pelatihan model CNN (pre-generated).
             """
         )
-        # Contoh placeholder: user dapat mengganti dengan hasil asli
-        # Asumsikan ada file CSV 'training_metrics.csv' dengan kolom ['epoch','loss','accuracy']
-        metrics_path = "data/results/training_metrics.csv"
-        if os.path.exists(metrics_path):
-            df_metrics = pd.read_csv(metrics_path)
-            fig1, ax1 = plt.subplots()
-            ax1.plot(df_metrics["epoch"], df_metrics["loss"], label="Loss")
-            ax1.set_xlabel("Epoch")
-            ax1.set_ylabel("Loss")
-            ax1.set_title("Loss vs Epoch")
-            ax1.legend()
-            st.pyplot(fig1)
-
-            fig2, ax2 = plt.subplots()
-            ax2.plot(df_metrics["epoch"], df_metrics["accuracy"], label="Akurasi")
-            ax2.set_xlabel("Epoch")
-            ax2.set_ylabel("Akurasi")
-            ax2.set_title("Akurasi vs Epoch")
-            ax2.legend()
-            st.pyplot(fig2)
+        graph_path = os.path.join("Assets", "graphLoss_accuration.jpg")
+        if os.path.exists(graph_path):
+            st.image(graph_path, caption="Grafik Loss vs Epoch & Akurasi vs Epoch", use_column_width=True)
         else:
-            st.warning(
-                "File training_metrics.csv tidak ditemukan di folder data/results/. "
-                "Silakan tambahkan CSV hasil pelatihan untuk ditampilkan."
-            )
+            st.warning("File `Assets/graphLoss_accuration.jpg` tidak ditemukan.")
 
     # Submenu: Evaluasi (Confusion Matrix)
     elif submenu_hasil == "Evaluasi (Confusion Matrix)":
         st.subheader("4.2 Confusion Matrix")
         st.markdown(
             """
-            Confusion matrix berikut menunjukkan performa klasifikasi model pada data uji.
+            Berikut confusion matrix pada data uji (pre-generated).
             """
         )
-        # Contoh menampilkan confusion matrix dari file gambar
-        cm_path = "data/results/confusion_matrix.png"
+        cm_path = os.path.join("Assets", "cfMatrix.jpg")
         if os.path.exists(cm_path):
-            st.image(cm_path, caption="Confusion Matrix Model", use_column_width=True)
+            st.image(cm_path, caption="Confusion Matrix", use_column_width=True)
         else:
-            st.warning(
-                "File confusion_matrix.png tidak ditemukan di folder data/results/. "
-                "Silakan tambahkan gambar confusion matrix untuk ditampilkan."
-            )
+            st.warning("File `Assets/cfMatrix.jpg` tidak ditemukan.")
